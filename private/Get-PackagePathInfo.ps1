@@ -1,15 +1,18 @@
 ﻿function Get-PackagePathInfo {
     <#
         .DESCRIPTION
-        Tests for the validity, existance and type of a location/path.
-        Returns whether the path locator is valid, whether it points to a HTTP or
+        Tests for the validity, existence and type of a location/path.
+        Returns whether the path locator is valid, whether it points to a HTTP(S) or
         filesystem resource and can optionally test whether the resource is accessible.
 
         .PARAMETER Path
         The absolute or relative path to get.
 
         .PARAMETER BasePath
-        In cases where the Path is relative, this BasePath will be used to resolve the absolute location of the resource.
+        If the Path is directory-relative, this BasePath will be used to try to resolve the absolute location of the Path.
+
+        .PARAMETER ForceBasePathIfRelative
+        If the Path is relative in any way (not fully qualified), always interpret it as relative to BasePath only even when that's technically wrong.
 
         .PARAMETER TestURLReachable
         In case the input Path is a HTTP(S) URL test connectivity with a HEAD request.
@@ -19,6 +22,7 @@
         [Parameter( Mandatory = $true )]
         [string]$Path,
         [string]$BasePath,
+        [switch]$ForceBasePathIfRelative,
         [switch]$TestURLReachable
     )
 
@@ -98,24 +102,44 @@
     }
 
     # Test for filesystem path
-    if ((Test-Path -LiteralPath $Path) -and
-        (Get-Item -LiteralPath $Path).PSProvider.ToString() -eq 'Microsoft.PowerShell.Core\FileSystem') {
+    # Test for relative ("partially qualified") filesystem path. Logic is based on .NET IsPathFullyQualified
+    # method which is unfortunately not available in PowerShell 5.1:
+    # https://learn.microsoft.com/en-us/dotnet/api/system.io.path.ispathfullyqualified
+    # https://github.com/dotnet/runtime/blob/80fb00f580f5b2353ff3a8aa78c5b5fd3f275a34/src/libraries/Common/src/System/IO/PathInternal.Windows.cs#L250
+    [bool]$PathIsRelative = $Path.Length -lt 2 -or
+        ($Path[0] -in '\', '/' -and $Path[1] -in '\', '/', '?') -or
+        ($Path.Length -ge 3 -and $Path[1] -eq [System.IO.Path]::VolumeSeparatorChar -and $Path[2] -in '\', '/' -and $Path[0] -match 'a-z')
+
+    $PathInfo.ErrorMessage = "'$Path' is not a supported URL and does not exist as a filesystem path"
+
+    if (-not $PathIsRelative -or -not $ForceBasePathIfRelative) {
+        # If either Path is not relative (is absolute) OR it is relative but we do not enforce
+        # relativity to only the BasePath, test the path as-is to let PowerShell interpret it.
+        # This will resolve absolute, current-drive-relative and current-directory-relative paths.
+        if (Test-Path -LiteralPath "Microsoft.PowerShell.Core\FileSystem::${Path}") {
             $PathInfo.Valid = $true
             $PathInfo.Reachable = $true
             $PathInfo.Type = 'FILE'
-            $PathInfo.AbsoluteLocation = (Get-Item -LiteralPath $Path).FullName
-    } else {
-        # Try again assuming that $Path is relative to $BasePath
-        if (-not $BasePath) { $BasePath = (Get-Location -PSProvider 'Microsoft.PowerShell.Core\FileSystem').Path }
+            $PathInfo.AbsoluteLocation = (Get-Item -LiteralPath "Microsoft.PowerShell.Core\FileSystem::${Path}").FullName
+            $PathInfo.ErrorMessage = ''
+
+            return $PathInfo
+        }
+    }
+
+    # If either:
+    # - We skipped the previous Test-Path (because Path is relative AND we enforce relativity to BasePath only)
+    # OR
+    # - We did not skip the previous Test-Path (because Path is absolute OR it is relative but we do not enforce relativity to BasePath only) but it did not succeed
+    # then test the result of a join of BasePath and Path.
+    if ($BasePath) {
         $JoinedPath = Join-Path -Path $BasePath -ChildPath $Path -ErrorAction Ignore
-        if ($JoinedPath -and (Test-Path -LiteralPath $JoinedPath) -and
-            (Get-Item -LiteralPath $JoinedPath).PSProvider.ToString() -eq 'Microsoft.PowerShell.Core\FileSystem') {
+        if ($JoinedPath -and (Test-Path -LiteralPath "Microsoft.PowerShell.Core\FileSystem::${JoinedPath}")) {
             $PathInfo.Valid = $true
             $PathInfo.Reachable = $true
             $PathInfo.Type = 'FILE'
-            $PathInfo.AbsoluteLocation = (Get-Item -LiteralPath $JoinedPath).FullName
-        } else {
-            $PathInfo.ErrorMessage = "'$Path' is not a supported URL and does not exist as a filesystem path"
+            $PathInfo.AbsoluteLocation = (Get-Item -LiteralPath "Microsoft.PowerShell.Core\FileSystem::${JoinedPath}").FullName
+            $PathInfo.ErrorMessage = ''
         }
     }
 

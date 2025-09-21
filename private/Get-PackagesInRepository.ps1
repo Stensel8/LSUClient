@@ -29,7 +29,10 @@
     $ModelXmlPathInfo    = $null
     $DatabaseXmlPathInfo = $null
 
-    if ((Get-PackagePathInfo -Path $ModelXmlPath -TestURLReachable -OutVariable ModelXmlPathInfo).Reachable) {
+    # TODO: Could I just do this now and remove the if RepositoryType part above? :
+    #if ((Get-PackagePathInfo -Path "${Model}_Win$($CachedHardwareTable._OS).xml" -BasePath $Repository -ForceBasePathIfRelative -TestURLReachable -OutVariable ModelXmlPathInfo).Reachable) {
+
+    if ((Get-PackagePathInfo -Path $ModelXmlPath -ForceBasePathIfRelative -TestURLReachable -OutVariable ModelXmlPathInfo).Reachable) {
         Write-Verbose "Getting packages from the model xml file ${ModelXmlPath}"
         if ($RepositoryType -eq 'HTTP') {
             # Model XML method for web based repositories
@@ -57,7 +60,7 @@
         }
 
         foreach ($Package in $PARSEDXML.packages.package) {
-            $PathInfo = Get-PackagePathInfo -Path $Package.location -BasePath $Repository
+            $PathInfo = Get-PackagePathInfo -Path $Package.location -BasePath $Repository -ForceBasePathIfRelative
             if ($PathInfo.Valid) {
                 [PackageXmlPointer]::new(
                     $PathInfo.AbsoluteLocation,
@@ -72,7 +75,7 @@
                 Write-Error "The package definition at $($Package.location) could not be found or accessed"
             }
         }
-    } elseif ((Get-PackagePathInfo -Path $DatabaseXmlPath -TestURLReachable -OutVariable DatabaseXmlPathInfo).Reachable) {
+    } elseif ((Get-PackagePathInfo -Path $DatabaseXmlPath -ForceBasePathIfRelative -TestURLReachable -OutVariable DatabaseXmlPathInfo).Reachable) {
         Write-Debug "Getting packages from the database xml file ${DatabaseXmlPath}"
         if ($RepositoryType -eq 'HTTP') {
             $webClient = New-WebClient -Proxy $Proxy -ProxyCredential $ProxyCredential -ProxyUseDefaultCredentials:$ProxyUseDefaultCredentials
@@ -103,7 +106,7 @@
                     # Updates in a database.xml repository have a 'Status' that can be set to 'Active', 'Hidden' and a few others.
                     # Get-LSUpdate should not show updates that have been hidden, so we skip them. See issue #113.
                     if ($Package.Status -ne 'Hidden') {
-                        $PathInfo = Get-PackagePathInfo -Path $Package.LocalPath -BasePath $Repository
+                        $PathInfo = Get-PackagePathInfo -Path $Package.LocalPath -BasePath $Repository -ForceBasePathIfRelative
                         if ($PathInfo.Valid) {
                             [PackageXmlPointer]::new(
                                 $PathInfo.AbsoluteLocation,

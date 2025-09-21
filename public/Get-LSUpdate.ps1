@@ -220,7 +220,7 @@
             $PackageFiles = [System.Collections.Generic.List[PackageFilePointer]]::new()
             $PackageFiles.Add($Package)
             $packageXML.Package.Files.SelectNodes('descendant-or-self::File') | Foreach-Object {
-                $FileInfo = Get-PackagePathInfo -Path $_.Name -BasePath $Package.Container
+                $FileInfo = Get-PackagePathInfo -Path $_.Name -BasePath $Package.Container -ForceBasePathIfRelative
                 if ($FileInfo.Valid) {
                     $PackageFiles.Add(
                         [PackageFilePointer]::new(
