@@ -120,14 +120,21 @@
         # If either Path is not relative (is absolute) OR it is relative but we do not enforce
         # relativity to only the BasePath, test the path as-is to let PowerShell interpret it.
         # This will resolve absolute, current-drive-relative and current-directory-relative paths.
-        if (Test-Path -LiteralPath "Microsoft.PowerShell.Core\FileSystem::${Path}") {
-            $PathInfo.Valid = $true
-            $PathInfo.Reachable = $true
-            $PathInfo.Type = 'FILE'
-            $PathInfo.AbsoluteLocation = (Get-Item -LiteralPath "Microsoft.PowerShell.Core\FileSystem::${Path}").FullName
-            $PathInfo.ErrorMessage = ''
+        #
+        # We cannot Test-Path a provider-qualified path like "Microsoft.PowerShell.Core\FileSystem::${Path}"
+        # because that syntax makes PowerShell resolve current-drive-relative paths wrong, see:
+        # https://github.com/PowerShell/PowerShell/issues/26092
+        if (Test-Path -LiteralPath $Path) {
+            $GI = Get-Item -LiteralPath $Path
+            if ($GI.PSProvider.ToString() -eq 'Microsoft.PowerShell.Core\FileSystem') {
+                $PathInfo.Valid = $true
+                $PathInfo.Reachable = $true
+                $PathInfo.Type = 'FILE'
+                $PathInfo.AbsoluteLocation = $GI.FullName
+                $PathInfo.ErrorMessage = ''
 
-            return $PathInfo
+                return $PathInfo
+            }
         }
     }
 
@@ -138,12 +145,15 @@
     # then test the result of a join of BasePath and Path.
     if ($BasePath) {
         $JoinedPath = Join-Path -Path $BasePath -ChildPath $Path -ErrorAction Ignore
-        if ($JoinedPath -and (Test-Path -LiteralPath "Microsoft.PowerShell.Core\FileSystem::${JoinedPath}")) {
-            $PathInfo.Valid = $true
-            $PathInfo.Reachable = $true
-            $PathInfo.Type = 'FILE'
-            $PathInfo.AbsoluteLocation = (Get-Item -LiteralPath "Microsoft.PowerShell.Core\FileSystem::${JoinedPath}").FullName
-            $PathInfo.ErrorMessage = ''
+        if ($JoinedPath -and (Test-Path -LiteralPath $JoinedPath)) {
+            $GI = Get-Item -LiteralPath $Path
+            if ($GI.PSProvider.ToString() -eq 'Microsoft.PowerShell.Core\FileSystem') {
+                $PathInfo.Valid = $true
+                $PathInfo.Reachable = $true
+                $PathInfo.Type = 'FILE'
+                $PathInfo.AbsoluteLocation = $GI.FullName
+                $PathInfo.ErrorMessage = ''
+            }
         }
     }
 
