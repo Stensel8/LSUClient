@@ -106,9 +106,13 @@
     # method which is unfortunately not available in PowerShell 5.1:
     # https://learn.microsoft.com/en-us/dotnet/api/system.io.path.ispathfullyqualified
     # https://github.com/dotnet/runtime/blob/80fb00f580f5b2353ff3a8aa78c5b5fd3f275a34/src/libraries/Common/src/System/IO/PathInternal.Windows.cs#L250
-    [bool]$PathIsRelative = $Path.Length -lt 2 -or
-        ($Path[0] -in '\', '/' -and $Path[1] -notin '\', '/', '?') -or
+    [bool]$PathIsRelative = if ($Path.Length -lt 2) {
+        $true
+    } elseif ($Path[0] -in '\', '/') {
+        $Path[1] -notin '\', '/', '?'
+    } else {
         -not ($Path.Length -ge 3 -and $Path[1] -eq [System.IO.Path]::VolumeSeparatorChar -and $Path[2] -in '\', '/' -and $Path[0] -match '[a-z]')
+    }
 
     $PathInfo.ErrorMessage = "'$Path' is not a supported URL and does not exist as a filesystem path"
 
