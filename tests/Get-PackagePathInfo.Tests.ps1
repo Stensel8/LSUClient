@@ -41,14 +41,16 @@ Describe 'Get-PackagePathInfo' {
         $info.AbsoluteLocation | Should -BeExactly (Join-Path -Path $PWD -ChildPath 'README.md')
     }
     It "Local directory by drive-relative path" {
-        $info = Get-PackagePathInfo -BasePath $PWD -Path '\Windows'
+        Push-Location -LiteralPath $env:SystemRoot
+        $info = Get-PackagePathInfo -BasePath $PWD -Path '\Users'
+        Pop-Location
 
         $info.Valid | Should -Be $true
         $info.Type | Should -BeExactly 'FILE'
-        $info.AbsoluteLocation | Should -BeExactly "$env:SystemDrive\Windows"
+        $info.AbsoluteLocation | Should -BeExactly "$env:SystemDrive\Users"
     }
     It "Local directory by drive-relative path with ForceBasePathIfRelative" {
-        $info = Get-PackagePathInfo -BasePath $PWD -Path '\Windows' -ForceBasePathIfRelative
+        $info = Get-PackagePathInfo -BasePath $env:SystemRoot -Path '\Users' -ForceBasePathIfRelative
 
         $info.Valid | Should -Be $false
         $info.ErrorMessage | Should -Not -BeNullOrEmpty
