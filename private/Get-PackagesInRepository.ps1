@@ -17,29 +17,18 @@
 
     Write-Verbose "Looking for packages in repository '${Repository}' (Type: ${RepositoryType})"
 
-    if ($RepositoryType -eq 'HTTP') {
-        $ModelXmlPath    = $Repository.TrimEnd('/', '\') + "/${Model}_Win$($CachedHardwareTable._OS).xml"
-        $DatabaseXmlPath = $Repository.TrimEnd('/', '\') + '/database.xml'
-    } elseif ($RepositoryType -eq 'FILE') {
-        $ModelXmlPath    = Join-Path -Path $Repository -ChildPath "${Model}_Win$($CachedHardwareTable._OS).xml"
-        $DatabaseXmlPath = Join-Path -Path $Repository -ChildPath "database.xml"
-    }
-
     # Used as pipeline OutVariables
     $ModelXmlPathInfo    = $null
     $DatabaseXmlPathInfo = $null
 
-    # TODO: Could I just do this now and remove the if RepositoryType part above? :
-    #if ((Get-PackagePathInfo -Path "${Model}_Win$($CachedHardwareTable._OS).xml" -BasePath $Repository -ForceBasePathIfRelative -TestURLReachable -OutVariable ModelXmlPathInfo).Reachable) {
-
-    if ((Get-PackagePathInfo -Path $ModelXmlPath -ForceBasePathIfRelative -TestURLReachable -OutVariable ModelXmlPathInfo).Reachable) {
-        Write-Verbose "Getting packages from the model xml file ${ModelXmlPath}"
+    if ((Get-PackagePathInfo -Path "${Model}_Win$($CachedHardwareTable._OS).xml" -BasePath $Repository -ForceBasePathIfRelative -TestURLReachable -OutVariable ModelXmlPathInfo).Reachable) {
+        Write-Verbose "Getting packages from the model xml file $($ModelXmlPathInfo.AbsoluteLocation)"
         if ($RepositoryType -eq 'HTTP') {
             # Model XML method for web based repositories
             $webClient = New-WebClient -Proxy $Proxy -ProxyCredential $ProxyCredential -ProxyUseDefaultCredentials:$ProxyUseDefaultCredentials
 
             try {
-                $COMPUTERXML = $webClient.DownloadString($ModelXmlPath)
+                $COMPUTERXML = $webClient.DownloadString($ModelXmlPathInfo.AbsoluteLocation)
             }
             catch {
                 if ($_.Exception.innerException.Response.StatusCode -eq [System.Net.HttpStatusCode]::NotFound) {
@@ -53,7 +42,7 @@
             [xml]$PARSEDXML = $COMPUTERXML -replace "^$UTF8ByteOrderMark"
         } elseif ($RepositoryType -eq 'FILE') {
             # Model XML method for file based repositories
-            $COMPUTERXML = Get-Content -LiteralPath $ModelXmlPath -Raw
+            $COMPUTERXML = Get-Content -LiteralPath $ModelXmlPathInfo.AbsoluteLocation -Raw
 
             # Strings with a BOM cannot be cast to an XmlElement, so we make sure to remove it if present
             [xml]$PARSEDXML = $COMPUTERXML -replace "^$UTF8ByteOrderMark"
@@ -75,13 +64,13 @@
                 Write-Error "The package definition at $($Package.location) could not be found or accessed"
             }
         }
-    } elseif ((Get-PackagePathInfo -Path $DatabaseXmlPath -ForceBasePathIfRelative -TestURLReachable -OutVariable DatabaseXmlPathInfo).Reachable) {
-        Write-Debug "Getting packages from the database xml file ${DatabaseXmlPath}"
+    } elseif ((Get-PackagePathInfo -Path "database.xml" -BasePath $Repository -ForceBasePathIfRelative -TestURLReachable -OutVariable DatabaseXmlPathInfo).Reachable) {
+        Write-Debug "Getting packages from the database xml file $($DatabaseXmlPathInfo.AbsoluteLocation)"
         if ($RepositoryType -eq 'HTTP') {
             $webClient = New-WebClient -Proxy $Proxy -ProxyCredential $ProxyCredential -ProxyUseDefaultCredentials:$ProxyUseDefaultCredentials
 
             try {
-                $XmlString = $webClient.DownloadString($DatabaseXmlPath)
+                $XmlString = $webClient.DownloadString($DatabaseXmlPathInfo.AbsoluteLocation)
             }
             catch {
                 if ($_.Exception.innerException.Response.StatusCode -eq [System.Net.HttpStatusCode]::NotFound) {
@@ -94,7 +83,7 @@
             # Downloading with Net.WebClient seems to remove the BOM automatically, this only seems to be neccessary when downloading with IWR. Still I'm leaving it in to be safe
             [xml]$PARSEDXML = $XmlString -replace "^$UTF8ByteOrderMark"
         } elseif ($RepositoryType -eq 'FILE') {
-            $XmlString = Get-Content -LiteralPath $DatabaseXmlPath -Raw
+            $XmlString = Get-Content -LiteralPath $DatabaseXmlPathInfo.AbsoluteLocation -Raw
 
             # Strings with a BOM cannot be cast to an XmlElement, so we make sure to remove it if present
             [xml]$PARSEDXML = $XmlString -replace "^$UTF8ByteOrderMark"
