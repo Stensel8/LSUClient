@@ -101,8 +101,6 @@
         }
     }
 
-    Write-Debug "GPPI: Test for filesystem path" # Debug info for issue 122
-
     # Test for filesystem path
     # Test for relative ("partially qualified") filesystem path. Logic is based on .NET IsPathFullyQualified
     # method which is unfortunately not available in PowerShell 5.1:
@@ -116,12 +114,9 @@
         -not ($Path.Length -ge 3 -and $Path[1] -eq [System.IO.Path]::VolumeSeparatorChar -and $Path[2] -in '\', '/' -and $Path[0] -match '[a-z]')
     }
 
-    Write-Debug "GPPI: PathIsRelative: $PathIsRelative" # Debug info for issue 122
-
     $PathInfo.ErrorMessage = "'$Path' is not a supported URL and does not exist as a filesystem path"
 
     if (-not $PathIsRelative -or -not $ForceBasePathIfRelative) {
-        Write-Debug "GPPI: Performing as-is Test-Path" # Debug info for issue 122
         # If either Path is not relative (is absolute) OR it is relative but we do not enforce
         # relativity to only the BasePath, test the path as-is to let PowerShell interpret it.
         # This will resolve absolute, current-drive-relative and current-directory-relative paths.
@@ -150,7 +145,6 @@
     # then test the result of a join of BasePath and Path.
     if ($BasePath) {
         $JoinedPath = Join-Path -Path $BasePath -ChildPath $Path -ErrorAction Ignore
-        Write-Debug "GPPI: Testing JoinedPath '$JoinedPath'" # Debug info for issue 122
         if ($JoinedPath -and (Test-Path -LiteralPath $JoinedPath)) {
             $GI = Get-Item -LiteralPath $JoinedPath
             if ($GI.PSProvider.ToString() -eq 'Microsoft.PowerShell.Core\FileSystem') {
@@ -161,8 +155,6 @@
                 $PathInfo.ErrorMessage = ''
             }
         }
-    } else {
-        Write-Debug "GPPI: No BasePath, skipping JoinedPath test" # Debug info for issue 122
     }
 
     return $PathInfo
