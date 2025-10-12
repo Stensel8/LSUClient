@@ -81,5 +81,5 @@ run `Get-Help -Detailed` on the functions in this module.
 
 - Only Windows 10 and Windows 11 are supported
 - This module does not clean up downloaded packages and installers at any point. The default download location is `$env:TEMP\LSUPackages` - you may delete it yourself
-- By default this module reaches out to https://download.lenovo.com and must be able to download `.xml`, `.exe` and `.inf` files from that domain for successful operation. Alternatively, a custom package repository can be used for completely internal or offline operation with the `-Repository` parameter of `Get-LSUpdate`. A custom repository can be served over HTTP(S) or just be a filesystem path - local or UNC.
+- By default this module reaches out to https://download.lenovo.com and must be able to download `.xml`, `.exe` and `.inf` files from that domain for successful operation. Alternatively, a [custom package repository can be set up](https://jantari.github.io/LSUClient-docs/docs/topics/self-hosted-repositories/) for completely internal or offline operation.
 
